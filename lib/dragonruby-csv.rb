@@ -47,10 +47,8 @@ module DragonRubyCSV
     def <<(row)
       idata[:lines] += 1
       if !row.is_a?(Row)
-        puts "Making the row from #{row.inspect}... #{idata[:lines]}"
         row = Row.new(self, row, idata[:lines])
       end
-      puts "Okay, row is #{row.inspect}"
       if idata[:headers].length != row.length
         error = "*** WARNING - COLUMN COUNT MISMATCH - WARNING ***\n*** ROW #{size} : EXPECTED #{idata[:headers].length} : FOUND #{row.length}\n\n"
         len = 0
@@ -171,7 +169,6 @@ module DragonRubyCSV
     def initialize(table, array, line=-1)
       idata[:table] = table
       idata[:line] = line
-      puts "Row new.. array is #{array.inspect} line is #{line} table is #{table.inspect}"
       super()
       concat array
     end
