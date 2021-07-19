@@ -41,7 +41,7 @@ class StringIO
         yield obj
       ensure
         obj.close
-        obj.instance_variable_set(:@string, nil)
+        obj.instance_variable_set(:@string, nil) if obj.is_a? StringIO
         obj
       end
     else
@@ -151,7 +151,7 @@ class StringIO
         buffer.replace(@string[@pos, length])
         @pos += buffer.length
       end
-      buffer.force_encoding('BINARY')
+      # buffer.force_encoding('BINARY')
    end
 
 
@@ -533,10 +533,10 @@ class StringIO
     if @append || (@pos >= @string.length)
       # add padding in case it's needed
       str = str.rjust((@pos + str.length) - @string.length, "\000") if (@pos > @string.length)
-      enc1, enc2 = str.encoding, @string.encoding
-      if enc1 != enc2
-        str = str.dup.force_encoding(enc2)
-      end
+      # enc1, enc2 = str.encoding, @string.encoding
+      # if enc1 != enc2
+      #   str = str.dup.force_encoding(enc2)
+      # end
       @string << str
       @pos = @string.length
     else
@@ -711,7 +711,8 @@ class StringIO
   end
 
   def external_encoding
-    @string ? @string.encoding : nil
+    # @string ? @string.encoding : nil
+    nil
   end
 
   def internal_encoding
@@ -719,7 +720,7 @@ class StringIO
   end
 
   def set_encoding(enc)
-    @string = @string.encode(enc)
+    # @string = @string.encode(enc)
     self
   end
 

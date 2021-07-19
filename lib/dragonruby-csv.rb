@@ -1,6 +1,32 @@
-module MotionCSV
+module DragonRubyCSV
+
+  module InstanceData
+    # This is a hack to support _some_ form of instance data
+    # given that mruby doesn't support ivars on core classes
+    # or subclasses of the same.
+
+    module ClassMethods
+      def attr_reader(*names)
+        names.each do |name|
+          define_method(name) { idata[name] }
+        end
+      end
+    end
+
+    def self.included(base)
+      base.extend(ClassMethods)
+    end
+
+    def idata
+      idata = {}
+      define_singleton_method(:idata) { idata }
+      idata
+    end
+  end
 
   class Table < Array
+
+    include InstanceData
 
     class << self
       def format_headers(unformatted)
@@ -11,20 +37,22 @@ module MotionCSV
     attr_reader :headers, :lines, :line_block
 
     def initialize(headers, fail_on_malformed_columns = true, &line_block)
-      @headers = Table.format_headers(headers)
-      @fail_on_malformed_columns = fail_on_malformed_columns
-      @line_block = line_block
-      @lines = 0
-      @indexes = {}
+      idata[:headers] = Table.format_headers(headers)
+      idata[:fail_on_malformed_columns] = fail_on_malformed_columns
+      idata[:line_block] = line_block
+      idata[:lines] = 0
+      idata[:indexes] = {}
     end
 
     def <<(row)
-      @lines += 1
+      idata[:lines] += 1
       if !row.is_a?(Row)
-        row = Row.new(self, row, @lines)
+        puts "Making the row from #{row.inspect}... #{idata[:lines]}"
+        row = Row.new(self, row, idata[:lines])
       end
-      if @headers.length != row.length
-        error = "*** WARNING - COLUMN COUNT MISMATCH - WARNING ***\n*** ROW #{size} : EXPECTED #{@headers.length} : FOUND #{row.length}\n\n"
+      puts "Okay, row is #{row.inspect}"
+      if idata[:headers].length != row.length
+        error = "*** WARNING - COLUMN COUNT MISMATCH - WARNING ***\n*** ROW #{size} : EXPECTED #{idata[:headers].length} : FOUND #{row.length}\n\n"
         len = 0
         headers.each do |header|
           len = header.to_s.length if header.to_s.length > len
@@ -33,7 +61,7 @@ module MotionCSV
           error << sprintf("%-32s : %s\n", header, row[i])
         end
         puts error
-        raise error if @fail_on_malformed_columns
+        raise error if idata[:fail_on_malformed_columns]
       end
       if line_block
         line_block.call(row)
@@ -68,9 +96,9 @@ module MotionCSV
 
       key = columns.join('|#|')
 
-      @indexes[key] ||= {}
+      idata[:indexes][key] ||= {}
 
-      index = @indexes[key]
+      index = idata[:indexes][key]
 
       if reindex || index.empty?
 
@@ -102,7 +130,7 @@ module MotionCSV
     end
 
     def write(file, quot = '"', sep = ',')
-      MotionCSV.write(file, quot, sep) do |out|
+      DragonRubyCSV.write(file, quot, sep) do |out|
         out << headers
         each do |row|
           out << row
@@ -117,23 +145,35 @@ module MotionCSV
 
   class Row < Array
 
+    include InstanceData
+
     class << self
+      def parameterize(str)
+        return '' unless str
+        str = str.downcase
+        str.tr!("\r", "")
+        str.tr!("\n\t ", "___")
+        str
+      end
+
       def to_key(key)
-        key = "#{key}".downcase.gsub(/\s+/, '_')
+        key = parameterize(key.to_s)
         key.empty? ? :_ : key.to_sym
       end
     end
 
     def headers
-      @headers ||= @table.headers.dup
+      idata[:headers] ||= idata[:table].headers.dup
     end
 
     attr_reader :line
 
     def initialize(table, array, line=-1)
-      @table = table
-      @line = line
-      super(array)
+      idata[:table] = table
+      idata[:line] = line
+      puts "Row new.. array is #{array.inspect} line is #{line} table is #{table.inspect}"
+      super()
+      concat array
     end
 
     def [](*is)
@@ -213,27 +253,29 @@ module MotionCSV
 
   class NumericConversion < Array
 
+    include InstanceData
+
     def initialize
-      @int = @float = true
-      @dot = false
+      idata[:int] = idata[:float] = true
+      idata[:dot] = false
     end
 
     def clear
-      @int = @float = true
-      @dot = false
+      idata[:int] = idata[:float] = true
+      idata[:dot] = false
       super
     end
 
     def <<(ch)
       if ch == ?-.ord
-        @float = @int = size == 0
+        idata[:float] = idata[:int] = size == 0
       elsif (ch > ?9.ord || ch < ?0.ord) && ch != ?..ord
-        @int = @float = false
-      elsif ch == ?..ord && @dot
-        @int = @float = false
+        idata[:int] = idata[:float] = false
+      elsif ch == ?..ord && idata[:dot]
+        idata[:int] = idata[:float] = false
       elsif ch == ?..ord
-        @int = false
-        @dot = true
+        idata[:int] = false
+        idata[:dot] = true
       end
 
       super(ch.chr)
@@ -244,9 +286,9 @@ module MotionCSV
         join
       elsif empty?
         nil
-      elsif @int
+      elsif idata[:int]
         join.to_i
-      elsif @float
+      elsif idata[:float]
         join.to_f
       else
         join
@@ -256,6 +298,8 @@ module MotionCSV
   end
 
   class NoConversion < Array
+
+    include InstanceData
 
     def <<(ch)
       super(ch.chr)
@@ -284,7 +328,7 @@ module MotionCSV
         self.<<(row.headers)
       end
       @first = false
-      @io.syswrite MotionCSV::quot_row(row, @quot, @sep, @quotenum)
+      @io.syswrite DragonRubyCSV::quot_row(row, @quot, @sep, @quotenum)
       row
     end
   end
@@ -380,23 +424,22 @@ module MotionCSV
     end
 
     def quot_row(row, q = '"', s = ',', numquot = false)
-      num_quot = /(?:[#{q}#{s}\n]|^\d+$)/
-      need_quot = /[#{q}#{s}\n]/
       row.map do |val|
         if val.nil?
           ""
         elsif val.is_a? Numeric
           val.to_s
         else
-          quot = (val.is_a?(Symbol) || !numquot) ? need_quot : num_quot
           val = String(val)
           if val.length == 0
             q * 2
+          elsif val.include?(q) or val.include?(s) or val.include?("\n")
+            q + val.gsub(q, q * 2) + q
           else
-            val[quot] ? q + val.gsub(q, q * 2) + q : val
+            val
           end
         end
-      end.join(s) + "\n"
+      end
     end
 
     def generate(quot = '"', sep = ',', &block)
@@ -429,7 +472,7 @@ end
 class Array
 
   def to_csv
-    MotionCSV.generate do |csv|
+    DragonRubyCSV.generate do |csv|
       if self.depth == 2
         self.each do |a|
           csv << a
@@ -455,7 +498,9 @@ end
 class String
 
   def parse_csv
-    MotionCSV.parse(self)
+    DragonRubyCSV.parse(self)
   end
 
 end
+
+CSV = DragonRubyCSV
