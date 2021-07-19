@@ -1,5 +1,5 @@
 [package]
-name = "CSV"
+name = "csv"
 authors = ["Mark Rickert [https://github.com/markrickert]", "mooff [https://github.com/togetherbeer]"]
 version = "0.0.9"
 homepage = "https://github.com/togetherbeer/dragonruby-csv"
