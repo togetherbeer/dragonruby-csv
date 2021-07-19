@@ -1,42 +1,44 @@
-# motion-csv
+# dragonruby-csv
 
-[![Build Status](https://travis-ci.org/OTGApps/motion-csv.svg?branch=master)](https://travis-ci.org/OTGApps/motion-csv) [![Code Climate](https://codeclimate.com/github/OTGApps/motion-csv/badges/gpa.svg)](https://codeclimate.com/github/OTGApps/motion-csv)
+This is a DragonRuby friendly port of a RubyMotion friendly port of fasterer-csv by Mason by Mark Rickert:
 
-This is a RubyMotion friendly port of fasterer-csv by Mason: http://rubygems.org/gems/fasterer-csv
+https://github.com/markrickert/motion-csv
+https://rubygems.org/gems/fasterer-csv
 
 ## Installation
 
-Add this line to your application's Gemfile:
+### Smaug
 
-    gem 'motion-csv'
+`smaug add csv`
 
-And then execute:
+### Vanilla
 
-    $ bundle
+Copy lib/stringio.rb and lib/dragonruby-csv.rb to lib/dragonruby-csv in your project directory, then require them:
 
-Or install it yourself as:
-
-    $ gem install motion-csv
+```ruby
+require 'lib/dragonruby-csv/stringio.rb'
+require 'lib/dragonruby-csv/dragonruby-csv.rb'
+```
 
 ## Usage
 
-Check out the `specs` directory for usage examples, but here's a few brief examples:
-
-### Standard Usage
-
 ```ruby
 csv_string = "a,b,c,d\n1,2,3,4\n5,6,7,whatever\n"
-csv = MotionCSV.parse(csv_string)
+csv = CSV.parse(csv_string)
 
 puts csv.headers # [:a, :b, :c, :d]
 puts csv.first[:b] # 2
 puts csv.last[:d] # "whatever"
+
+csv.each do |row|
+  # ...
+end
 ```
 
 ### Generating a CSV String
 
 ```ruby
-MotionCSV.generate do |csv|
+CSV.generate do |csv|
   csv << ["row", "of", "CSV", "data"]
   csv << ["another", "row"]
 end
@@ -66,10 +68,6 @@ This uses a convenience method on the `String` class.
 "header1,header2\nCSV,String".parse_csv
 # [["CSV", "String"]]
 ```
-
-## Tests
-
-To run the testing suite, run `rake spec`.
 
 ## Contributing
 
